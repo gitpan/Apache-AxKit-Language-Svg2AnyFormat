@@ -5,6 +5,8 @@ examples/bear.svg
 examples/face.svg
 examples/hallo.svg
 examples/text.svg
+examples/batik3D.svg
+examples/gradients.svg
 Changes
 Makefile.PL
 MANIFEST

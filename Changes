@@ -1,4 +1,7 @@
 Revision history for Perl extension Apache-AxKit-Language-Svg2AnyFormat.
 
+0.02	- added support for librsvg (at the moment only command line)
+	- added support for eps format
+
 0.01 
 	- initial release
