@@ -1,0 +1,11 @@
+lib/Apache/AxKit/Language/Svg2AnyFormat.pm
+lib/Apache/AxKit/Plugin/SvgCgiSerialize.pm
+examples/barChart.svg
+examples/bear.svg
+examples/face.svg
+examples/hallo.svg
+examples/text.svg
+Changes
+Makefile.PL
+MANIFEST
+README
