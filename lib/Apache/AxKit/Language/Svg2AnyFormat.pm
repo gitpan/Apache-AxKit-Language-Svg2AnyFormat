@@ -3,7 +3,7 @@ package Apache::AxKit::Language::Svg2AnyFormat;
 @ISA = ( 'Apache::AxKit::Language' );
 
 BEGIN {
-   $Apache::AxKit::Language::Svg2AnyFormat::VERSION = 0.04
+   $Apache::AxKit::Language::Svg2AnyFormat::VERSION = 0.05
 }
 
 use Apache;
@@ -66,7 +66,7 @@ sub handler
         $serialized_svg = &serializeWithImageMagick( $temp_svg, $suffix );
     } elsif( $serializer eq "LibRSVG" ) {
         AxKit::Debug(8, "Serializer is: LibRSVG");
-        $serialized_svg = &serializeWithLibRSVG( $temp_svg, $MimeTypeSuffixFormatMappings{$mime}, $suffix );
+        $serialized_svg = &serializeWithLibRSVG( $temp_svg, $MimeTypeSuffixFormatMappings{$mime}->[1], $suffix );
     } else {
         fail( "This is an unknown serializer for me." );
     }
@@ -106,6 +106,7 @@ sub serializeWithLibRSVG {
         if( ! $rsvg->convert( $infile, "$TEMPDIR_/temp.png" ) ) {
             fail( "The was an error when transforming with Image::LibRSVG\n" );
         } else {
+#	    print STDERR "FORMAT $format NOT SUPPORTED BY Image::LibRSVG\n";
             &serializeWithImageMagick( "$TEMPDIR_/temp.png", $suffix );
         }
     }

@@ -1,5 +1,9 @@
 Revision history for Perl extension Apache-AxKit-Language-Svg2AnyFormat.
 
+0.05    
+        - fixed bug when trying to use Image::LibRSVG, always Image::Magick
+          has been used
+
 0.04    - fixed documentation issues
         - fixed versioning issues (not upgrading version to 0.03)
 
