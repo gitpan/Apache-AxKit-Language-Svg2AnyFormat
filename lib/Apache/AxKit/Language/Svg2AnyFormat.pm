@@ -7,42 +7,32 @@ BEGIN {
 }
 
 use Apache;
-# use Image::Magick;
 use Apache::Request;
-Apache::AxKit::Cache;
 use File::Copy ();
 use File::Temp ();
 use File::Path ();
 use Cwd;
 use strict;
+use warnings;
 
-my $olddir;
-my $tempdir;
-my $cache;
+my $TEMPDIR_;
 
 my %Config = 
 (  
     SVGOutputMimeType   => "image/png",
-    SVGOutputSerializer => "ImageMagick",
-    SVGOutputLibRSVGBin => "/usr/local/bin"
+    SVGOutputSerializer => "ImageMagick"
 );
 
-my %MimeTypeSuffixMappings =
+my %MimeTypeSuffixFormatMappings =
 (
-    "image/png"              => "png",
-    "image/jpeg"             => "jpg",
-    "image/gif"              => "gif",
-    "application/pdf"        => "pdf",
-    "application/postscript" => "eps"
+    "image/png"              => [ "png" , "png"  ],
+    "image/jpeg"             => [ "jpg" , "jpeg" ],
+    "image/gif"              => [ "gif" , "gif"  ],
+    "image/tiff"             => [ "tiff", "tiff" ],
+    "application/pdf"        => [ "pdf" , "pdf"  ],
+    "application/postscript" => [ "eps" , "eps"  ]
 );
 
-my %MimeTypeLibRSVGFormatMappings =
-(
-    "image/png"        => "png",
-## DOES NOT WORK CORRECTLY AT THE MOMENT
-## ONE CAN TURN ON BY COMMENTING IN
-##    "image/jpeg"       => "jpeg"
-);
 
 sub stylesheet_exists () { 0; }
 
@@ -52,187 +42,33 @@ sub handler
     my ( $r, $xml_provider, undef, $last_in_chain ) = @_;
     
     my $mime;
-    my $suffix = "png";
+    my $suffix;
     my $serializer;
-    my $rsvg_bin;
+    my $serialized_svg;
+    my $temp_svg;
     
     AxKit::Debug(8, "Transform started!!!!");
     
-    print STDERR "IN HERE!!!!!!\n";
-    
-    if( ! $last_in_chain )
-    {
+    if( ! $last_in_chain ) {
         fail( "This is a Serializer, hence it has to be the last in the chain!" );
     }
-    
-    if( $r->pnotes( "axkit_mime_type" ) )
-    {
-        AxKit::Debug(8, "MimeType retrieved from Plugin");
-        $mime = $r->pnotes( "axkit_mime_type" );
-    }
-    else
-    {
-        AxKit::Debug(8, "MimeType retrieved from CONF or using Default");
-        $mime = $r->dir_config( "SVGOutputMimeType" ) || $Config{SVGOutputMimeType};
-    }
+
+    ( $mime, $suffix ) = &mimeTypeSuffixHandling( $r );
     
     AxKit::Debug(8, "MimeType is set to '$mime'");
+    AxKit::Debug(8, "Suffix is set to '$suffix'");
     
-    if( ! exists $MimeTypeSuffixMappings{$mime} )
-    {
-        AxKit::Debug(8, "MimeType is not known. We are using DEFAULTS");
-        $mime   = $Config{SVGOutputMimeType};
-        $suffix = "png";
-    }
-    else
-    {
-        AxKit::Debug(8, "Setting suffix. To mapped value");
-        $suffix = $MimeTypeSuffixMappings{$mime};
-    }
-
     $serializer = $r->dir_config( "SVGOutputSerializer" ) || $Config{SVGOutputSerializer};
-    $rsvg_bin   = $r->dir_config( "SVGOutputLibRSVGBin" ) || $Config{SVGOutputLibRSVGBin};
-    
-    if( $serializer eq "ImageMagick" || ! exists $MimeTypeLibRSVGFormatMappings{$mime} ) 
-    {
-        AxKit::Debug(8, "We need Image-Magick because ImageMagick should be used as serializer or LibRSVG could not create desired format");
         
-        ## Loading at runtime
-        require Image::Magick;
-    }
-    elsif( $serializer eq "LibRSVG" )
-    {
-        AxKit::Debug(8, "LibRSVG is registered as serializer");
-        
-        ## nothing to be loaded because we are using command line
-    }
-    else
-    {
-        fail( "This is an unknown serializer for me." );
-    }
+    $temp_svg = &createTempSVGFile( $r, $xml_provider );
     
-    my $tempdir = File::Temp::tempdir();
-    
-    AxKit::Debug(8, "Got tempdir: $tempdir");
-    
-    if ( ! $tempdir ) 
-    {
-        die "Cannot create tempdir: $!";
-    }
-    
-    $olddir = cwd;
-    
-    if( my $dom = $r->pnotes('dom_tree') )
-    {
-        AxKit::Debug(8, "Got a dom tree");
-        my $xmlstring = $dom->toString();
-        delete $r->pnotes()->{'dom_tree'};
-        
-        my $fh = Apache->gensym();
-        chdir( $tempdir ) || fail( "Cannot cd: $!" );
-        open($fh, ">temp.svg") || fail( "Cannot write: $!" );
-        print $fh $xmlstring;
-        close( $fh ) || fail( "Cannot close: $!" );
-    }
-    elsif( my $xmlstring = $r->pnotes('xml_string') )
-    {
-        AxKit::Debug(8, "Got a xml-string");
-        my $fh = Apache->gensym();
-        chdir( $tempdir ) || fail( "Cannot cd: $!" );
-        open($fh, ">temp.svg") || fail( "Cannot write: $!" );
-        print $fh $xmlstring;
-        close( $fh ) || fail( "Cannot close: $!" );
-    }
-    else
-    {
-        my $text = eval { ${$xml_provider->get_strref()} };
-        
-        if ( $@ ) 
-        {
-            AxKit::Debug(8, "No ref");
-            my $fh = $xml_provider->get_fh();
-            chdir($tempdir) || fail("Cannot cd: $!");
-            File::Copy::copy($fh, "temp.svg");
-        }
-        else 
-        {
-            AxKit::Debug(8, "It has been a ref");
-            
-            my $fh = Apache->gensym();
-            chdir($tempdir) || fail( "Cannot cd: $!" );
-            open($fh, ">temp.svg") || fail( "Cannot write: $!" );
-            print $fh $text;
-            close($fh) || fail("Cannot close: $!");
-        }
-    }
-    
-    chdir( $tempdir ) || fail("Cannot cd: $!");
-    
-    my $retval;
-    
-    if( $serializer eq "ImageMagick" )
-    {
-        AxKit::Debug(8, "Serializer is ImageMagick");
-        
-        my $image = new Image::Magick();
-        $retval = $image->Read( "temp.svg" );
-        
-        if( "$retval" )
-        {
-            fail( "ImageMagick failed. Reason: $retval" );
-        }
-        
-        $image->Write( "temp.$suffix" );
-    }
-    else
-    {
+    if( $serializer eq "ImageMagick" ) {
+        $serialized_svg = &serializeWithImageMagick( $temp_svg, $suffix );
+    } elsif( $serializer eq "LibRSVG" ) {
         AxKit::Debug(8, "Serializer is: LibRSVG");
-        
-        if( exists $MimeTypeLibRSVGFormatMappings{$mime} )
-        {
-            AxKit::Debug(8, "MimeType is supported by LibRSVG");
-            
-            $retval = system( "$rsvg_bin/rsvg -f ".$MimeTypeLibRSVGFormatMappings{$mime}." temp.svg temp.$suffix" );
-    
-
-            if( $retval )
-            {
-                fail( "rsvg exited with status code $retval" );
-            }
-        }
-        else
-        {
-            AxKit::Debug(8, "MimeType '$mime' **NOT** is supported by LibRSVG");
-            
-            my $image = new Image::Magick();
-
-            AxKit::Debug(8, "STEP 1: rsvg convert to PNG");
-            
-            $retval = system( "$rsvg_bin/rsvg -f png temp.svg temp.png" );
-            
-            if( $retval )
-            {
-                fail( "rsvg exited with status code $retval" );
-            }
-            
-            AxKit::Debug(8, "STEP 2: ImageMagick to FINAL format '$mime'");
-
-            chdir( $tempdir ) || fail("Cannot cd: $!");
-
-            $retval = $image->Read( "temp.png" );
-            
-            if( "$retval" )
-            {
-                fail( "ImageMagick failed. Reason: $retval" );
-            }
-            
-            $image->Write( "temp.$suffix" );
-            
-            if( "$retval" )
-            {
-                fail( "ImageMagick failed. Reason: $retval" );
-            }
-        }
+        $serialized_svg = &serializeWithLibRSVG( $temp_svg, $MimeTypeSuffixFormatMappings{$mime}, $suffix );
+    } else {
+        fail( "This is an unknown serializer for me." );
     }
 
     AxKit::Debug(8, "Serialization finished.");
@@ -241,22 +77,166 @@ sub handler
     
     my $pdfh = Apache->gensym();
     
-    open( $pdfh, "<temp.$suffix" ) or fail( "Could not open $mime: $!" );
+    open( $pdfh, "<$serialized_svg" ) or fail( "Could not open $serialized_svg: $!" );
     $r->content_type( $mime );
     local $/;
     
     $r->print(<$pdfh>);
     
+    &cleanup();
+    
     return Apache::Constants::OK;
 }
 
+sub serializeWithLibRSVG {
+    my $infile         = shift;
+    my $format         = shift;
+    my $suffix         = shift;
+    my $converted_file = "$TEMPDIR_/temp." . $suffix;
+    
+    require Image::LibRSVG;
+    
+    my $rsvg = new Image::LibRSVG();
+    
+    if( Image::LibRSVG->isFormatSupported( $format ) ) {
+        if( ! $rsvg->convert( $infile, $converted_file, 0, $format ) ) {
+            fail( "The was an error when transforming with Image::LibRSVG\n" );
+        }
+    } else {
+        if( ! $rsvg->convert( $infile, "$TEMPDIR_/temp.png" ) ) {
+            fail( "The was an error when transforming with Image::LibRSVG\n" );
+        } else {
+            &serializeWithImageMagick( "$TEMPDIR_/temp.png", $suffix );
+        }
+    }
+    
+    return $converted_file;
+}
+
+sub serializeWithImageMagick {
+    my $infile         = shift;
+    my $converted_file = "$TEMPDIR_/temp." . shift;
+    my $local_dir;
+    
+    require Image::Magick;
+    
+    AxKit::Debug(8, "Serializer is ImageMagick");
+    
+    $infile =~ s%$TEMPDIR_/%%;
+    $local_dir = cwd;
+    
+    chdir( $TEMPDIR_ );
+    
+    my $image = new Image::Magick();
+    my $retval = $image->Read( $infile );
+        
+    if( "$retval" ) {
+        chdir( $local_dir );
+        fail( "ImageMagick Read of file '$infile' failed. Reason: $retval" );
+    }
+        
+    $retval = $image->Write( $converted_file );
+    
+    if( "$retval" ) {
+        chdir( $local_dir );
+        fail( "ImageMagick Write of file '$converted_file' failed. Reason: $retval" );
+    }
+    
+    chdir( $local_dir );
+    
+    return $converted_file;
+}
+
+
+sub createTempSVGFile {
+    my $r            = shift;
+    my $xml_provider = shift;
+    my $temp_svg;
+    my $fh;
+    my $xmlstring;
+    
+    $TEMPDIR_ = File::Temp::tempdir();
+    
+    AxKit::Debug(8, "Got tempdir: $TEMPDIR_");
+    
+    if ( ! $TEMPDIR_ ) {
+        die "Cannot create tempdir: $!";
+    } else {
+        $temp_svg = "$TEMPDIR_/temp.svg";
+        $fh = Apache->gensym();
+    }
+    
+    if( my $dom = $r->pnotes('dom_tree') )
+    {
+        AxKit::Debug(8, "Got a dom tree");
+        
+        $xmlstring = $dom->toString();
+        delete $r->pnotes()->{'dom_tree'};
+        
+        open($fh, ">") || fail( "Cannot write: $!" );
+            print $fh $xmlstring;
+        close( $fh ) || fail( "Cannot close: $!" );
+        
+    } elsif( $xmlstring = $r->pnotes('xml_string') ) {
+        AxKit::Debug(8, "Got a xml-string");
+        
+        open($fh, ">$TEMPDIR_/temp.svg") || fail( "Cannot write: $!" );
+            print $fh $xmlstring;
+        close( $fh ) || fail( "Cannot close: $!" );
+        
+    } else {
+        $xmlstring = eval { ${$xml_provider->get_strref()} };
+        
+        if ( $@ ) {
+            AxKit::Debug(8, "No ref");
+            $fh = $xml_provider->get_fh();
+
+            File::Copy::copy($fh, "$TEMPDIR_/temp.svg");
+        } else  {
+            AxKit::Debug(8, "It has been a ref");
+            
+            open($fh, ">$TEMPDIR_/temp.svg") || fail( "Cannot write: $!" );
+                print $fh $xmlstring;
+            close($fh) || fail("Cannot close: $!");
+            
+        }
+    }
+    
+    return $temp_svg;
+}
+
+
+sub mimeTypeSuffixHandling {
+    my $r = shift;
+    my $mime;
+    my $suffix;
+    
+    if( $r->pnotes( "axkit_mime_type" ) ) {
+        AxKit::Debug(8, "MimeType retrieved from Plugin");
+        $mime = $r->pnotes( "axkit_mime_type" );
+    } else {
+        AxKit::Debug(8, "MimeType retrieved from CONF or using Default");
+        $mime = $r->dir_config( "SVGOutputMimeType" ) || $Config{SVGOutputMimeType};
+    }
+    
+    if( ! exists $MimeTypeSuffixFormatMappings{$mime} ) {
+        AxKit::Debug(8, "MimeType is not known. We are using DEFAULTS");
+        $mime   = $Config{SVGOutputMimeType};
+        $suffix = "png";
+    } else {
+        AxKit::Debug(8, "Setting suffix. To mapped value");
+        $suffix = $MimeTypeSuffixFormatMappings{$mime}[0];
+    }
+    
+    return ( $mime, $suffix );
+}
+
 sub cleanup {
-    chdir $olddir;
-    File::Path::rmtree($tempdir);
+    File::Path::rmtree( $TEMPDIR_ );
 }
 
 sub fail {
-    cleanup();
+    &cleanup();
     die @_;
 }
 

@@ -8,7 +8,8 @@ WriteMakefile(
     'VERSION_FROM'  => 'lib/Apache/AxKit/Language/Svg2AnyFormat.pm', # finds $VERSION
     'PREREQ_PM'	    => {
         AxKit         => "1.6.1",
-        Image::Magick => "5.55"
+        Image::Magick => "5.55",
+	Image::LibRSVG => "0.01"
     },
     'dist' => {
         COMPRESS => "gzip -9",

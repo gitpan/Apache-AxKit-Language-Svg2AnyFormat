@@ -23,9 +23,8 @@ DEPENDENCIES
 This module requires these other modules and libraries:
 
 Axkit        - Version 1.6.1 or higher ( http://www.axkit.org )
-Image-Magick - Version 5.55 or higher ( http://www.imagemagick.org )
-LibRSVG      - Version 2.2.3.tar.gz or higher ( http://librsvg.sourceforge.net )
-		You do ***not*** need the Perl-Module
+Image::Magick - Version 5.55 or higher ( http://www.imagemagick.org )
+Image::LibRSVG - Version 0.01 or higher ( http://search.cpan.org/~tomson/?D=D  )
 
 Please note that everything may also work by using libaries with a lower
 than the one mentionned above.
@@ -35,6 +34,6 @@ COPYRIGHT AND LICENCE
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 
 
-Copyright (C) 2003 tom.schindl <tom.schindl@bestsolution.at>
+Copyright (C) 2003-2004 tom.schindl <tom.schindl@bestsolution.at>
 
 
