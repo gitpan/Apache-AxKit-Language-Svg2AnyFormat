@@ -3,7 +3,7 @@ package Apache::AxKit::Language::Svg2AnyFormat;
 @ISA = ( 'Apache::AxKit::Language' );
 
 BEGIN {
-   $Apache::AxKit::Language::Svg2AnyFormat::VERSION = 0.05
+   $Apache::AxKit::Language::Svg2AnyFormat::VERSION = 0.06
 }
 
 use Apache;
@@ -171,12 +171,8 @@ sub createTempSVGFile {
     {
         AxKit::Debug(8, "Got a dom tree");
         
-        $xmlstring = $dom->toString();
+        $dom->toFile("$TEMPDIR_/temp.svg");
         delete $r->pnotes()->{'dom_tree'};
-        
-        open($fh, ">") || fail( "Cannot write: $!" );
-            print $fh $xmlstring;
-        close( $fh ) || fail( "Cannot close: $!" );
         
     } elsif( $xmlstring = $r->pnotes('xml_string') ) {
         AxKit::Debug(8, "Got a xml-string");
