@@ -3,7 +3,7 @@ package Apache::AxKit::Language::Svg2AnyFormat;
 @ISA = ( 'Apache::AxKit::Language' );
 
 BEGIN {
-   $Apache::AxKit::Language::Svg2AnyFormat::VERSION = 0.02
+   $Apache::AxKit::Language::Svg2AnyFormat::VERSION = 0.04
 }
 
 use Apache;
@@ -309,15 +309,11 @@ Apache::AxKit::Language::Svg2AnyFormat - SVG Serializer
     ## Supported Values(Native Formats):
     ##    image/png
     ## If you specify any other format:
-    ##   svg->png is done by LibRSVG
+    ##   svg->png is done by Image::LibRSVG
     ##   png->chosen format Image::Magick
     PerlSetVar SVGOutputMimeType image/jpeg
     
     PerlSetVar SVGOutputSerializer LibRSVG
-    
-    ## only to be set if path differs from
-    ## /usr/local/bin
-    PerlSetVar SVGOutputLibRSVGBin /usr/bin/rsvg
     
     ## optional module to pass the format using cgi-parameters
     ## to the module. For supported values see above
@@ -380,13 +376,10 @@ LibRSVG is part of the gnome project. And could also be used as SVG-Serializer a
 the only really supported output-format is PNG. As a matter of that if you want to use
 LibRSVG as your SVG-Serializer and the output format is an other than PNG, LibRSVG is used to
 transform the SVG to PNG and ImageMagick from PNG to the desired output format.
-At the moment no working PERL-Module for LibRSVG exists so we are using the commandline utility
-rsvg.
 
 =head3 Example:
 
   PerlSetVar SVGOutputSerializer LibRSVG
-  PerlSetVar SVGOutputLibRSVGBin /usr/bin/rsvg
 
 =head3 Advantages
 
@@ -408,7 +401,7 @@ not that big
 
 =item 
 
-no Perl-Module for C-libary => command line used at the moment
+* Perl-Module highly experimental
 
 =item
 
@@ -419,7 +412,7 @@ Image::Magick in a second transformation step (LOW Performance!!!).
 
 =head1 VERSION
 
-0.02
+0.03
 
 =head1 SEE ALSO
 

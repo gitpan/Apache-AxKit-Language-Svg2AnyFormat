@@ -1,5 +1,8 @@
 Revision history for Perl extension Apache-AxKit-Language-Svg2AnyFormat.
 
+0.04    - fixed documentation issues
+        - fixed versioning issues (not upgrading version to 0.03)
+
 0.03	- fixed bug of creating of not cleaning up temp-files 
 	- completly refactored Svg2AnyFormat.pm
 	- switched from rsvg commandline support to Image::LibRSVG
